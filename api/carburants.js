@@ -13,39 +13,39 @@ export default async function handler(req, res) {
     const zipBuffer = await zipResponse.arrayBuffer();
 
     const zip = new AdmZip(Buffer.from(zipBuffer));
-    const zipEntries = zip.getEntries();
+    const entries = zip.getEntries();
 
-    const xmlEntry = zipEntries.find(entry => entry.entryName.endsWith(".xml"));
-    if (!xmlEntry) throw new Error("Fichier XML non trouvé dans l’archive ZIP.");
+    // Cherche un fichier .xml dans l’archive
+    const xmlEntry = entries.find((e) => e.entryName.endsWith(".xml"));
+    if (!xmlEntry) throw new Error("Fichier XML introuvable dans l’archive ZIP");
 
     const xmlText = xmlEntry.getData().toString("utf8");
-    const stations = await parseXmlToStations(xmlText);
 
-    res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate");
+    // Parse le contenu XML
+    const parsed = await parseStringPromise(xmlText);
+    const rawStations = parsed?.pdv_liste?.pdv || [];
+
+    // Transformation des données
+    const stations = rawStations.map((station) => {
+      const lat = parseFloat(station.$.latitude) / 100000;
+      const lon = parseFloat(station.$.longitude) / 100000;
+      const id = station.$.id;
+      const ville = station.ville?.[0] || "";
+      const adresse = station.adresse?.[0] || "";
+
+      const carburants = (station.prix || []).map((p) => ({
+        nom: p.$.nom,
+        valeur: p.$.valeur,
+        maj: p.$.maj,
+      }));
+
+      return { id, lat, lon, ville, adresse, carburants };
+    });
+
+    res.setHeader("Cache-Control", "s-maxage=86400");
     res.status(200).json(stations);
-  } catch (error) {
-    console.error("Erreur récupération carburants:", error);
+  } catch (err) {
+    console.error("Erreur récupération carburants:", err);
     res.status(500).json({ error: "Erreur récupération des données" });
   }
-}
-
-async function parseXmlToStations(xml) {
-  const parsed = await parseStringPromise(xml);
-  const rawStations = parsed?.pdv_liste?.pdv || [];
-
-  return rawStations.map((station) => {
-    const lat = parseFloat(station.$.latitude) / 100000;
-    const lon = parseFloat(station.$.longitude) / 100000;
-    const id = station.$.id;
-    const ville = station.ville?.[0] || "";
-    const adresse = station.adresse?.[0] || "";
-
-    const carburants = (station.prix || []).map((p) => ({
-      nom: p.$.nom,
-      valeur: p.$.valeur,
-      maj: p.$.maj,
-    }));
-
-    return { id, lat, lon, ville, adresse, carburants };
-  });
 }
