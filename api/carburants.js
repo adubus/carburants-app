@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { parseStringPromise } from "xml2js";
-import iconv from "iconv-lite"; // ← nouveau
+import iconv from "iconv-lite"; // pour décoder ISO-8859-15
 
 export default async function handler(req, res) {
   try {
@@ -9,11 +9,9 @@ export default async function handler(req, res) {
     const zipBuffer = await zipResponse.arrayBuffer();
 
     const zip = await JSZip.loadAsync(Buffer.from(zipBuffer));
-    const files = Object.keys(zip.files);
-    const xmlFileName = files.find((name) => name.endsWith(".xml"));
-    
-    const xmlBuffer = await zip.files[xmlFileName].async("nodebuffer"); // ← lire comme buffer
-    const xmlText = iconv.decode(xmlBuffer, "ISO-8859-15"); // ← décoder proprement
+    const xmlFileName = Object.keys(zip.files).find(name => name.endsWith(".xml"));
+    const xmlBuffer = await zip.files[xmlFileName].async("nodebuffer");
+    const xmlText = iconv.decode(xmlBuffer, "ISO-8859-15"); // décode avec accents
 
     const stations = await parseXmlToStations(xmlText);
 
@@ -27,23 +25,19 @@ export default async function handler(req, res) {
 
 async function parseXmlToStations(xml) {
   const parsed = await parseStringPromise(xml);
-
   const rawStations = parsed?.pdv_liste?.pdv || [];
-  const result = rawStations.map((station) => {
+
+  return rawStations.map(station => {
     const lat = parseFloat(station.$.latitude) / 100000;
     const lon = parseFloat(station.$.longitude) / 100000;
     const id = station.$.id;
     const ville = station.ville?.[0] || "";
     const adresse = station.adresse?.[0] || "";
-
-    const carburants = (station.prix || []).map((p) => ({
+    const carburants = (station.prix || []).map(p => ({
       nom: p.$.nom,
       valeur: p.$.valeur,
       maj: p.$.maj,
     }));
-
     return { id, lat, lon, ville, adresse, carburants };
   });
-
-  return result;
 }
