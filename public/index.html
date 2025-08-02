@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accueil</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<footer style="text-align:center; padding: 20px; font-size: 0.9em; color: #888;">
+  © ADubus  -  Tous droits réservés
+</footer>
+<body>
+  <h1>Outils disponibles</h1>
+          <button onclick="window.location.href='AroundMe.html'">Around me</button>
+                <button onclick="window.location.href='AroundMe2.html'">Around me beta</button>
+        <button onclick="window.location.href='Circuits.html'">Circuits</button>
+      <button onclick="window.location.href='Event.html'">Events</button>
+
+    <button onclick="window.location.href='PublicHolidays.html'">Public Holidays</button>
+  <button onclick="window.location.href='gps.html'">Route Gen</button>
+
+  <button onclick="window.location.href='Carburants.html'">stations services</button>
+
+  <button onclick="window.location.href='Tides.html'">Tide Tools</button>
+    <button onclick="window.location.href='Weather4.html'">Weather</button>
+
+      <button onclick="window.location.href='Wikipedia.html'">Wikipedia</button>
+
+        <button onclick="window.location.href='Avis.html'">Donnez votre avis ou suggestions</button>
+
+  
+  
+<script>
+  // Bloque clic droit
+  document.addEventListener('contextmenu', event => event.preventDefault());
+
+  // Bloque certaines touches classiques
+  document.addEventListener('keydown', function(e) {
+    if (
+      e.key === 'F12' ||
+      (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J')) ||
+      (e.ctrlKey && (e.key === 'U' || e.key === 'S'))
+    ) {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  // Message dissuasif sur Ctrl+U
+  window.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'u') {
+      alert("Copier ce code est désactivé.");
+      e.preventDefault();
+    }
+  });
+
+  // Détection plus subtile des DevTools (avec console.log piégé)
+  let devtoolsOpen = false;
+  const element = new Image();
+  Object.defineProperty(element, 'id', {
+    get: function () {
+      devtoolsOpen = true;
+      throw new Error("DevTools détecté !");
+    }
+  });
+
+  setInterval(() => {
+    devtoolsOpen = false;
+    console.log(element);
+    if (devtoolsOpen) {
+      document.body.innerHTML = "<h1 style='text-align:center;'>Inspection interdite</h1>";
+    }
+  }, 2000);
+</script>
+
+
+
+  
+</body>
+</html>
