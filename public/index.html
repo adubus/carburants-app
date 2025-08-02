@@ -2,58 +2,62 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stations-service proches</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stations-service autour de moi</title>
 </head>
 <body>
-  <h1>Stations-service autour de vous</h1>
-  <div id="status">Chargement des données…</div>
+  <h1>⛽ Stations-service autour de moi</h1>
+  <p id="loading">Chargement des données…</p>
   <ul id="station-list"></ul>
 
   <script>
-    async function fetchStations() {
-      try {
-        const res = await fetch('/api/carburants');
-        const stations = await res.json();
+    const API_URL = '/api/carburants';
 
-        if (!navigator.geolocation) throw new Error("Géolocalisation non disponible");
-
-        navigator.geolocation.getCurrentPosition((pos) => {
-          const { latitude: lat, longitude: lon } = pos.coords;
-
-          const list = stations.map((station) => {
-            const d = distance(lat, lon, station.lat, station.lon).toFixed(1);
-            return { ...station, distance: d };
-          }).sort((a, b) => a.distance - b.distance);
-
-          document.getElementById("station-list").innerHTML = list.slice(0, 20).map(s => `
-            <li>
-              <strong>${s.ville}</strong> – ${s.adresse}<br/>
-              ${s.carburants.map(c => `${c.nom}: ${c.valeur}€`).join(" / ")}<br/>
-              📍 ${s.distance} km
-            </li>`).join("");
-
-          document.getElementById("status").remove();
-        }, () => {
-          throw new Error("Autorisation géolocalisation refusée");
-        });
-      } catch (e) {
-        document.getElementById("status").innerText = "Erreur lors du chargement des données";
-        console.error(e);
-      }
-    }
-
-    function distance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // km
+    function getDistanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat/2)**2 +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon/2)**2;
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
       return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
     }
 
-    fetchStations();
+    async function init() {
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const stations = await response.json();
+
+        if (!navigator.geolocation) throw new Error("Géolocalisation non disponible");
+        navigator.geolocation.getCurrentPosition((position) => {
+          const { latitude: lat, longitude: lon } = position.coords;
+          const list = stations.map(s => ({
+            ...s,
+            distance: getDistanceKm(lat, lon, s.lat, s.lon)
+          })).sort((a, b) => a.distance - b.distance);
+
+          document.getElementById('loading').remove();
+          const el = document.getElementById('station-list');
+          list.slice(0, 20).forEach(s => {
+            const item = document.createElement('li');
+            item.innerHTML = `<strong>${s.ville}</strong> – ${s.adresse}<br>
+              ${s.carburants.map(c => `${c.nom} : ${c.valeur} €`).join(' | ')}<br>
+              📍 ${s.distance.toFixed(2)} km`;
+            el.appendChild(item);
+          });
+        }, (err) => {
+          throw new Error("Autorisation géolocalisation refusée");
+        });
+      } catch (err) {
+        console.error("Erreur API ou géoloc :", err);
+        document.getElementById('station-list').innerHTML = "";
+        const msg = document.getElementById('loading');
+        msg.textContent = `Erreur : ${err.message}`;
+      }
+    }
+
+    init();
   </script>
 </body>
 </html>
