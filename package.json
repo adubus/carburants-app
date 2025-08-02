@@ -1,19 +1,5 @@
-
-
-
-
-
 {
-  "type": "module",
-  "engines": {
-    "node": "18.x"
-  },
-  "dependencies": {
-    "xml2js": "^0.4.23",
-    "jszip": "^3.10.1",
-        "iconv-lite": "^0.6.3",
-    {
-  "name": "carburants-app",
+  "name": "tools",
   "type": "module",
   "engines": {
     "node": "18.x"
@@ -22,7 +8,5 @@
     "xml2js": "^0.4.23",
     "jszip": "^3.10.1",
     "iconv-lite": "^0.6.3"
-  }
-}
   }
 }
