@@ -74,6 +74,8 @@
   <optgroup label="🚗 Mobilité & Transports">
     <option value="parking">Parking</option>
     <option value="fuel">Station-service</option>
+     <option value="carburants-api" data-key="special">Station-service (API carburants)</option>
+ 
     <option value="charging_station">Borne électrique</option>
     <option value="bus_station">Gare routière</option>
     <option value="bicycle_parking">Parking vélo</option>
@@ -266,7 +268,82 @@ END:VCARD`;
           }
           return;
         }
+if (key === "special" && cat === "carburants-api") {
+  const response = await fetch("/api/carburants");
+  if (!response.ok) throw new Error("Erreur lors du chargement des stations");
 
+  const data = await response.json();
+
+  const stationsProches = data.map(station => {
+    const d = haversine(lat, lon, station.lat, station.lon);
+    return { ...station, _distance: d };
+  }).filter(s => s._distance <= 15000) // 15 km
+    .sort((a, b) => a._distance - b._distance);
+
+  if (searchText !== "") {
+    stationsProches = stationsProches.filter(s =>
+      (s.ville && s.ville.toLowerCase().includes(searchText)) ||
+      (s.carburants.some(c => c.nom.toLowerCase().includes(searchText)))
+    );
+  }
+
+  if (!stationsProches.length) {
+    resultat.innerHTML = "Aucune station trouvée à proximité.";
+    return;
+  }
+
+  if (mode === "liste") {
+    resultat.innerHTML = `<h2>⛽ Stations-service autour de ${villeLabel}</h2>`;
+    const container = document.getElementById("places-list");
+    container.innerHTML = "";
+    for (const s of stationsProches.slice(0, 20)) {
+      const carburants = s.carburants.map(c => `${c.nom}: ${c.valeur} € (${c.maj})`).join("<br>");
+      const itineraireURL = `gps.html?toLat=${s.lat}&toLon=${s.lon}`;
+      const vcfContent = `BEGIN:VCARD
+VERSION:3.0
+FN:Station-service ${s.ville}
+ADR:${s.adresse}
+NOTE:Coordonnées: ${s.lat}, ${s.lon}
+END:VCARD`;
+      const blob = new Blob([vcfContent], { type: 'text/vcard' });
+      const vcfUrl = URL.createObjectURL(blob);
+
+      container.insertAdjacentHTML("beforeend", `
+        <div class="place-card">
+          <h3>${s.ville}</h3>
+          <p>
+            ${s.adresse}<br/>
+            📏 ${(s._distance / 1000).toFixed(2)} km<br/>
+            ${carburants}<br/>
+            <a class="button" href="${itineraireURL}">🧭 Itinéraire</a>
+            <a class="button" href="${vcfUrl}" download="station-${s.ville}.vcf">📇 Enregistrer</a>
+          </p>
+        </div>
+      `);
+    }
+  } else {
+    resultat.innerHTML = "";
+    mapDiv.style.display = "block";
+    mapDiv.innerHTML = "";
+    const map = L.map("map").setView([lat, lon], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    stationsProches.forEach(s => {
+      const popup = `
+        <strong>${s.ville}</strong><br/>
+        ${s.adresse}<br/>
+        ${s.carburants.map(c => `${c.nom}: ${c.valeur} € (${c.maj})`).join("<br>")}
+      `;
+      L.marker([s.lat, s.lon]).addTo(map).bindPopup(popup);
+    });
+    L.circleMarker([lat, lon], {
+      radius: 8, fillColor: "#3388ff", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.8
+    }).addTo(map).bindPopup("📍 Vous êtes ici").openPopup();
+  }
+
+  return;
+}
         const radius = 10000;
         const query = `
           [out:json];
