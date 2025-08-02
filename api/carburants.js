@@ -1,3 +1,5 @@
+
+import { Buffer } from "buffer";
 import JSZip from "jszip";
 import { parseStringPromise } from "xml2js";
 import iconv from "iconv-lite";
