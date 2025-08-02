@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jours fériés en France</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    li.saturday, li.sunday { color: red;}
+  </style>
+</head>
+<body>
+ <button onclick="window.location.href='index.html'">Retour à la page d'accueil</button>
+  <h1>Jours fériés</h1>
+  <select id="yearSelect" onchange="afficherFeries()"></select>
+  <ul id="feries"></ul>
+  <button onclick="exporterCalendrier()">📅 Ajouter au calendrier</button>
+
+  <script>
+    const feriesList = document.getElementById("feries");
+
+    function calculerPaques(annee) {
+      const f = Math.floor;
+      const G = annee % 19;
+      const C = f(annee / 100);
+      const H = (C - f(C / 4) - f((8 * C + 13) / 25) + 19 * G + 15) % 30;
+      const I = H - f(H / 28) * (1 - f(29 / (H + 1)) * f((21 - G) / 11));
+      const J = (annee + f(annee / 4) + I + 2 - C + f(C / 4)) % 7;
+      const L = I - J;
+      const mois = 3 + f((L + 40) / 44);
+      const jour = L + 28 - 31 * f(mois / 4);
+      return new Date(annee, mois - 1, jour);
+    }
+
+    function getFeries(annee) {
+      const paques = calculerPaques(annee);
+      const lundiPaques = new Date(paques); lundiPaques.setDate(paques.getDate() + 1);
+      const ascension = new Date(paques); ascension.setDate(paques.getDate() + 39);
+      const pentecote = new Date(paques); pentecote.setDate(paques.getDate() + 50);
+
+      const feries = [
+        { nom: "Jour de l'An", date: new Date(annee, 0, 1) },
+        { nom: "Lundi de Pâques", date: lundiPaques },
+        { nom: "Fête du Travail", date: new Date(annee, 4, 1) },
+        { nom: "Victoire 1945", date: new Date(annee, 4, 8) },
+        { nom: "Ascension", date: ascension },
+        { nom: "Lundi de Pentecôte", date: pentecote },
+        { nom: "Fête Nationale", date: new Date(annee, 6, 14) },
+        { nom: "Assomption", date: new Date(annee, 7, 15) },
+        { nom: "Toussaint", date: new Date(annee, 10, 1) },
+        { nom: "Armistice 1918", date: new Date(annee, 10, 11) },
+        { nom: "Noël", date: new Date(annee, 11, 25) },
+      ];
+
+      return feries;
+    }
+
+    function afficherFeries() {
+      const annee = parseInt(document.getElementById("yearSelect").value);
+      const feries = getFeries(annee);
+      feriesList.innerHTML = "";
+      feries.forEach(jour => {
+        const li = document.createElement("li");
+        const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+        const dateStr = jour.date.toLocaleDateString("fr-FR", options);
+        const jourSemaine = jour.date.getDay();
+        li.textContent = `${dateStr} : ${jour.nom}`;
+        if (jourSemaine === 0) li.classList.add("sunday");
+        if (jourSemaine === 6) li.classList.add("saturday");
+        feriesList.appendChild(li);
+      });
+    }
+
+function exporterCalendrier() {
+  const annee = parseInt(document.getElementById("yearSelect").value);
+  if (isNaN(annee)) {
+    alert("Veuillez sélectionner une année valide.");
+    return;
+  }
+  
+  const feries = getFeries(annee);
+  let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nCALSCALE:GREGORIAN\n";
+  
+  feries.forEach(jour => {
+    const date = jour.date.toISOString().split("T")[0].replace(/-/g, "");
+    // DTEND doit être le lendemain pour couvrir la journée complète
+    const dateEnd = new Date(jour.date);
+    dateEnd.setDate(dateEnd.getDate() + 1);
+    const dateFin = dateEnd.toISOString().split("T")[0].replace(/-/g, "");
+    
+    ics += `BEGIN:VEVENT\nSUMMARY:${jour.nom}\nDTSTART;VALUE=DATE:${dateFin}\nDTEND;VALUE=DATE:${dateFin}\nEND:VEVENT\n`;
+  });
+  ics += "END:VCALENDAR";
+  
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `jours_feries_${annee}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+
+    // Initialisation
+    const currentYear = new Date().getFullYear();
+    const select = document.getElementById("yearSelect");
+    for (let y = currentYear - 1; y <= currentYear + 10; y++) {
+      const option = document.createElement("option");
+      option.value = y;
+      option.textContent = y;
+      if (y === currentYear) option.selected = true;
+      select.appendChild(option);
+    }
+    afficherFeries();
+  </script>
+</body>
+</html>
