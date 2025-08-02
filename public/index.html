@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Stations-service</title>
+  <title>Stations-service proches</title>
   <style>
     body { font-family: sans-serif; padding: 1em; }
     #status { background: #eee; padding: 1em; margin-bottom: 1em; border: 1px solid #ccc; }
@@ -11,40 +11,70 @@
   </style>
 </head>
 <body>
-  <h1>Stations-service autour de vous</h1>
+  <h1>Stations-service à moins de 15 km</h1>
   <div id="status">Chargement des données…</div>
   <div id="stations"></div>
 
   <script>
+    function distanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371; // km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
     async function loadStations() {
       const status = document.getElementById("status");
-      try {
-        const response = await fetch("/api/carburants");
-        if (!response.ok) {
-          throw new Error("Erreur HTTP " + response.status);
-        }
+      status.innerText = "📍 Localisation en cours…";
 
-        const data = await response.json();
-
-        if (!Array.isArray(data)) {
-          throw new Error("Format de réponse inattendu");
-        }
-
-        status.innerText = "✔ Données chargées : " + data.length + " stations trouvées";
-
-        const container = document.getElementById("stations");
-        data.forEach(station => {
-          const div = document.createElement("div");
-          div.className = "station";
-          div.innerHTML = `<strong>${station.ville}</strong><br>${station.adresse}<br>` +
-            station.carburants.map(c => `${c.nom}: ${c.valeur} € (${c.maj})`).join("<br>");
-          container.appendChild(div);
-        });
-
-      } catch (err) {
-        status.innerText = "❌ Erreur de chargement : " + err.message;
-        console.error("Erreur récupération carburants :", err);
+      if (!navigator.geolocation) {
+        status.innerText = "❌ Géolocalisation non supportée par ce navigateur.";
+        return;
       }
+
+      navigator.geolocation.getCurrentPosition(async position => {
+        const userLat = position.coords.latitude;
+        const userLon = position.coords.longitude;
+
+        status.innerText = "📦 Chargement des données carburants…";
+
+        try {
+          const response = await fetch("/api/carburants");
+          if (!response.ok) throw new Error("HTTP " + response.status);
+
+          const data = await response.json();
+          const proches = data.filter(station => {
+            const d = distanceKm(userLat, userLon, station.lat, station.lon);
+            station.distance = d;
+            return d <= 15;
+          }).sort((a, b) => a.distance - b.distance);
+
+          status.innerText = `✔ ${proches.length} station(s) trouvée(s) à moins de 15 km`;
+
+          const container = document.getElementById("stations");
+          proches.forEach(station => {
+            const div = document.createElement("div");
+            div.className = "station";
+            div.innerHTML = `<strong>${station.ville}</strong><br>
+              ${station.adresse}<br>
+              Distance : ${station.distance.toFixed(2)} km<br>
+              ${station.carburants.map(c => `${c.nom}: ${c.valeur} € (${c.maj})`).join("<br>")}`;
+            container.appendChild(div);
+          });
+
+        } catch (err) {
+          status.innerText = "❌ Erreur de chargement : " + err.message;
+          console.error(err);
+        }
+
+      }, error => {
+        status.innerText = "❌ Erreur géolocalisation : " + error.message;
+      });
     }
 
     loadStations();
