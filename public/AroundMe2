@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Autour de moi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input, select, button { margin: 5px 0; padding: 6px; font-size: 16px; }
+    #map { height: 500px; margin-top: 15px; display: none; }
+    ul, #places-list { list-style: none; padding: 0; }
+    li, .place-card { margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+    .button { display: inline-block; margin-top: 5px; padding: 5px 10px; background: #4CAF50; color: white; text-decoration: none; border-radius: 4px; }
+    .button:hover { background: #45a049; }
+  </style>
+    <link rel="stylesheet" href="style.css" />
+  
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <button onclick="window.location.href='index.html'">Retour à la page d'accueil</button>
+  <h1>Autour de moi</h1>
+
+  <label for="ville">Ville (laisser vide pour géolocalisation) :</label><br />
+  <input type="text" id="ville" placeholder="ex : Nantes" /><br />
+
+  <label for="categorie">Catégorie :</label><br />
+  <select id="categorie" data-key="amenity">
+    <optgroup label="🗺️ Informations">
+      <option value="wikipedia" data-key="special">Wikipedia (lieux remarquables)</option>
+    </  <optgroup label="🍴 Alimentation & Boissons">
+    <option value="restaurant">Restaurant</option>
+    <option value="fast_food">Restauration rapide</option>
+    <option value="cafe">Café</option>
+    <option value="bar">Bar</option>
+    <option value="ice_cream">Glacier</option>
+  </optgroup>
+
+ 
+  <optgroup label="🛒 Commerces">
+    <option value="supermarket" data-key="shop">Supermarché</option>
+    <option value="bakery" data-key="shop">Boulangerie</option>
+    <option value="butcher" data-key="shop">Boucherie</option>
+    <option value="convenience" data-key="shop">Épicerie</option>
+ 
+    <option value="greengrocer">Primeur</option>
+    <option value="marketplace">Marché</option>
+  </optgroup>
+
+  <optgroup label="🏨 Hébergements (tourism)">
+    <option value="hotel" data-key="tourism">Hôtel</option>
+    <option value="guest_house" data-key="tourism">Chambre d’hôte</option>
+    <option value="hostel" data-key="tourism">Auberge de jeunesse</option>
+    <option value="camp_site" data-key="tourism">Camping</option>
+    <option value="motel" data-key="tourism">Motel</option>
+    <option value="alpine_hut" data-key="tourism">Refuge de montagne</option>
+  </optgroup>
+
+  <optgroup label="🏛️ Culture & Loisirs">
+    <option value="museum" data-key="tourism">Musée</option>
+    <option value="cinema" data-key="amenity">Cinéma</option>
+    <option value="theatre" data-key="amenity">Théâtre</option>
+    <option value="library" data-key="amenity">Bibliothèque</option>
+    <option value="arts_centre" data-key="amenity">Centre culturel</option>
+  </optgroup>
+
+  <optgroup label="⛪ Monuments & Culte">
+    <option value="place_of_worship" data-key="amenity">Église / Lieu de culte</option>
+    <option value="monument" data-key="historic">Monument</option>
+    <option value="memorial" data-key="historic">Mémorial</option>
+  </optgroup>
+
+  <optgroup label="🚗 Mobilité & Transports">
+    <option value="parking">Parking</option>
+    <option value="fuel">Station-service</option>
+    <option value="charging_station">Borne électrique</option>
+    <option value="bus_station">Gare routière</option>
+    <option value="bicycle_parking">Parking vélo</option>
+    <option value="taxi">Station de taxi</option>
+    <option value="car_rental">Location de voiture</option>
+  </optgroup>
+
+  <optgroup label="🚻 Services publics & santé">
+    <option value="pharmacy">Pharmacie</option>
+    <option value="hospital">Hôpital</option>
+    <option value="clinic">Clinique</option>
+    <option value="doctor">Médecin</option>
+    <option value="police">Police</option>
+    <option value="post_office">Bureau de poste</option>
+    <option value="bank">Banque</option>
+    <option value="atm">Distributeur (DAB)</option>
+    <option value="toilets">Toilettes publiques</option>
+    <option value="drinking_water">Eau potable</option>
+  </optgroup>
+
+  <optgroup label="🏞️ Nature & plein air">
+    <option value="park" data-key="leisure">Parc</option>
+    <option value="garden" data-key="leisure">Jardin</option>
+    <option value="picnic_site" data-key="tourism">Aire de pique-nique</option>
+    <option value="viewpoint" data-key="tourism">Point de vue</option>
+    <option value="playground" data-key="leisure">Aire de jeux</option>
+    <option value="dog_park" data-key="leisure">Parc pour chiens</option>
+    <option value="fountain" data-key="amenity">Fontaine</option>
+  </optgroup>
+    <!-- [Insère ici toutes tes autres optgroups comme tu les as déjà définis] -->
+  </select>
+
+  <label for="searchText">Recherche (nom ou marque) :</label>
+  <input type="text" id="searchText" placeholder="Ex : Carrefour, Lidl, Parc..." />
+  <br />
+  <button onclick="rechercherLieux('liste')">📋 Afficher sous forme de liste</button>
+  <button onclick="rechercherLieux('carte')">🗺️ Afficher sur la carte</button>
+
+  <div id="resultat"></div>
+  <div id="places-list"></div>
+  <div id="map"></div>
+
+  <script>
+    const GEONAMES_USERNAME = "dubus"; // 🔁 Remplace par ton nom d'utilisateur GeoNames
+    const reverseGeocodeCache = {};
+
+    function capitalizeFirst(str) {
+      if (!str) return "";
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const toRad = deg => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2)**2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    async function getAddressFromCoords(lat, lon) {
+      const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+      if (reverseGeocodeCache[key]) return reverseGeocodeCache[key];
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const address = data.display_name || "Adresse non disponible";
+        reverseGeocodeCache[key] = address;
+        await new Promise(r => setTimeout(r, 1000));
+        return address;
+      } catch {
+        return "Adresse non disponible";
+      }
+    }
+
+    async function renderPlaces(places) {
+      const container = document.getElementById("places-list");
+      container.innerHTML = "";
+      for (const el of places.slice(0, 15)) {
+        const name = el.tags?.name || el.title || "(Nom inconnu)";
+        const lat = el.lat || el.center?.lat;
+        const lon = el.lon || el.center?.lon;
+
+        let distanceText = "";
+        if (lat && lon && el._distance !== undefined) {
+          const km = el._distance / 1000;
+          distanceText = `${km.toFixed(1)} km`;
+        }
+
+        const phone = el.tags?.phone || "";
+        let address = el.summary || "";
+        if (!address && (lat && lon)) address = await getAddressFromCoords(lat, lon);
+
+        const itineraireURL = `gps.html?toLat=${lat}&toLon=${lon}`;
+        const phoneLink = phone ? `<a href="tel:${phone}">📞 ${phone}</a><br/>` : "";
+
+        const vcfContent = `BEGIN:VCARD
+VERSION:3.0
+FN:${name}
+TEL:${phone}
+ADR:${address}
+NOTE:Coordonnées: ${lat}, ${lon}
+END:VCARD`;
+
+        const blob = new Blob([vcfContent], { type: 'text/vcard' });
+        const vcfUrl = URL.createObjectURL(blob);
+
+        const placeHTML = `
+          <div class="place-card">
+            <h3>${name}</h3>
+            <p>
+              ${phoneLink}
+              📍 ${address}<br/>
+              📏 ${distanceText}<br/>
+              <a class="button" href="${itineraireURL}">🧭 Itinéraire</a>
+              <a class="button" href="${vcfUrl}" download="${name.replace(/\s+/g, "_")}.vcf">📇 Enregistrer</a>
+            </p>
+          </div>
+        `;
+        container.insertAdjacentHTML("beforeend", placeHTML);
+      }
+    }
+
+    async function rechercherLieux(mode) {
+      const villeInput = document.getElementById("ville").value.trim();
+      const select = document.getElementById("categorie");
+      const cat = select.value;
+      const key = select.selectedOptions[0].dataset.key || "amenity";
+      const searchText = document.getElementById("searchText").value.trim().toLowerCase();
+      const resultat = document.getElementById("resultat");
+      const mapDiv = document.getElementById("map");
+      const placesList = document.getElementById("places-list");
+      resultat.innerHTML = "Chargement…";
+      mapDiv.style.display = "none";
+      placesList.innerHTML = "";
+
+      let lat, lon, villeLabel = villeInput;
+
+      try {
+        if (villeInput) {
+          const geo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(villeInput)}`).then(r => r.json());
+          if (!geo.length) throw new Error("Ville introuvable");
+          lat = geo[0].lat;
+          lon = geo[0].lon;
+        } else {
+          const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject));
+          lat = pos.coords.latitude;
+          lon = pos.coords.longitude;
+          const rev = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`).then(r => r.json());
+          villeLabel = rev.address.city || rev.address.town || rev.address.village || "votre position";
+        }
+
+        if (key === "special" && cat === "wikipedia") {
+          const url = `https://secure.geonames.org/findNearbyWikipediaJSON?lat=${lat}&lng=${lon}&radius=10&maxRows=15&lang=fr&username=${GEONAMES_USERNAME}`;
+          const data = await fetch(url).then(r => r.json());
+          let lieux = data.geonames || [];
+
+          lieux.forEach(el => {
+            el._distance = haversine(lat, lon, el.lat, el.lng);
+          });
+          lieux.sort((a, b) => a._distance - b._distance);
+
+          if (searchText !== "") {
+            lieux = lieux.filter(l => l.title.toLowerCase().includes(searchText) || l.summary.toLowerCase().includes(searchText));
+          }
+
+          if (!lieux.length) {
+            resultat.innerHTML = "Aucun lieu trouvé.";
+            return;
+          }
+
+          if (mode === "liste") {
+            resultat.innerHTML = `<h2>📚 Wikipedia autour de ${villeLabel}</h2>`;
+            await renderPlaces(lieux);
+          } else {
+            resultat.innerHTML = "";
+            mapDiv.style.display = "block";
+            mapDiv.innerHTML = "";
+            const map = L.map("map").setView([lat, lon], 14);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+              attribution: '&copy; OpenStreetMap'
+            }).addTo(map);
+            lieux.forEach(lieu => {
+              const marker = L.marker([lieu.lat, lieu.lng]).addTo(map);
+              marker.bindPopup(`<strong>${lieu.title}</strong><br/><a href="https://${lieu.wikipediaUrl}" target="_blank">Voir sur Wikipedia</a>`);
+            });
+          }
+          return;
+        }
+
+        const radius = 10000;
+        const query = `
+          [out:json];
+          (
+            node["${key}"="${cat}"](around:${radius},${lat},${lon});
+            way["${key}"="${cat}"](around:${radius},${lat},${lon});
+            relation["${key}"="${cat}"](around:${radius},${lat},${lon});
+          );
+          out center;
+        `;
+        const overpassURL = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+        const data = await fetch(overpassURL).then(r => r.json());
+        let elements = data.elements;
+
+        if (searchText) {
+          elements = elements.filter(el => {
+            const name = el.tags?.name?.toLowerCase() || "";
+            const brand = el.tags?.brand?.toLowerCase() || "";
+            return name.includes(searchText) || brand.includes(searchText);
+          });
+        }
+
+        if (!elements.length) {
+          resultat.innerHTML = "Aucun lieu trouvé.";
+          return;
+        }
+
+        elements.forEach(el => {
+          const elLat = el.lat || el.center?.lat;
+          const elLon = el.lon || el.center?.lon;
+          el._distance = elLat && elLon ? haversine(lat, lon, elLat, elLon) : Infinity;
+        });
+        elements.sort((a, b) => a._distance - b._distance);
+
+        if (mode === "liste") {
+          mapDiv.style.display = "none";
+          resultat.innerHTML = `<h2>📍 Résultats autour de ${villeLabel} :</h2>`;
+          await renderPlaces(elements);
+        } else {
+          resultat.innerHTML = "";
+          mapDiv.style.display = "block";
+          mapDiv.innerHTML = "";
+          const map = L.map("map").setView([lat, lon], 14);
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: '&copy; OpenStreetMap'
+          }).addTo(map);
+          const marker = L.circleMarker([lat, lon], {
+            radius: 8, fillColor: "#3388ff", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.8
+          }).addTo(map).bindPopup("📍 Vous êtes ici").openPopup();
+
+          elements.forEach(el => {
+            const name = el.tags?.name || "Sans nom";
+            const elLat = el.lat || el.center?.lat;
+            const elLon = el.lon || el.center?.lon;
+            if (elLat && elLon) {
+              L.marker([elLat, elLon])
+                .addTo(map)
+                .bindPopup(`<strong>${name}</strong><br/>Type : ${cat}`);
+            }
+          });
+        }
+      } catch (err) {
+        resultat.innerHTML = `<span style="color:red">Erreur : ${err.message}</span>`;
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>
