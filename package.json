@@ -1,12 +1,4 @@
-{
-  "name": "carburants-app",
-  "type": "module",
-  "engines": {
-    "node": "18.x"
-  },
-  "dependencies": {
-    "xml2js": "^0.6.2"
-    {
+ {
   "name": "carburants-app",
   "type": "module",
   "engines": {
