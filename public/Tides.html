@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Horaires des Marées</title>
+  <link rel="stylesheet" href="style.css" />  
+</head>
+<body>
+  <button onclick="window.location.href='index.html'">Retour à la page d'accueil</button>
+  <h1>Horaires des Marées</h1>
+
+  <label for="ville">Ville côtière :</label>
+  <input type="text" id="ville" placeholder="ex : Saint-Malo" />
+  <button onclick="obtenirMarees()">Obtenir les marées</button>
+
+  <div id="result"></div>
+
+<script>
+  const API_KEY = "7499ed9f-fbe6-4297-9220-9fd879366b4a";
+
+  async function obtenirMarees() {
+    const ville = document.getElementById("ville").value.trim();
+    const result = document.getElementById("result");
+    result.innerHTML = "Chargement…";
+
+    let lat, lon;
+    let nomAffiche = ville || "votre position actuelle";
+
+    try {
+      if (ville) {
+        // Obtenir coordonnées GPS via Nominatim
+        const geocode = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(ville)}&format=json`)
+          .then(res => res.json());
+        if (!geocode.length) throw new Error("Ville introuvable");
+        lat = geocode[0].lat;
+        lon = geocode[0].lon;
+      } else {
+        // Utiliser la géolocalisation
+        if (!navigator.geolocation) {
+          result.innerHTML = "<span style='color:red'>Géolocalisation non supportée. Veuillez saisir une ville.</span>";
+          return;
+        }
+
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+
+        lat = position.coords.latitude;
+        lon = position.coords.longitude;
+
+        // Facultatif : obtenir le nom de la ville depuis les coordonnées
+        const reverse = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+          .then(res => res.json());
+        nomAffiche = reverse.address.town || reverse.address.city || reverse.address.village || "votre position";
+      }
+
+      // Calculer timestamp UTC minuit
+      const now = new Date();
+      const utcMidnightToday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const utcTimestamp = Math.floor(utcMidnightToday / 1000);
+
+      // Requête API WorldTides
+      const url = `https://corsproxy.io/?${encodeURIComponent(
+        `https://www.worldtides.info/api/v3?extremes&lat=${lat}&lon=${lon}&start=${utcTimestamp}&length=86400&key=${API_KEY}`
+      )}`;
+      const tide = await fetch(url).then(r => r.json());
+
+      if (!tide.extremes || !tide.extremes.length) {
+        result.innerHTML = "Aucune marée trouvée pour aujourd’hui.";
+        return;
+      }
+
+      const nowUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const events = tide.extremes.filter(e => {
+        const d = new Date(e.date);
+        const dUTC = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+        return dUTC.getTime() === nowUTC.getTime();
+      });
+
+      if (!events.length) {
+        result.innerHTML = "Aucune marée trouvée pour aujourd’hui.";
+        return;
+      }
+
+      result.innerHTML = `<h2>Marées du ${now.toLocaleDateString("fr-FR")} à ${nomAffiche}</h2><ul>` +
+        events.map(e => {
+          const d = new Date(e.date);
+          const heure = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+          return `<li><strong>${e.type === "High" ? "Marée haute" : "Marée basse"}</strong> à ${heure}</li>`;
+        }).join("") +
+        `</ul>`;
+
+    } catch (err) {
+      console.error(err);
+      result.innerHTML = `<span style="color:red">Erreur : ${err.message}</span>`;
+    }
+  }
+</script>
