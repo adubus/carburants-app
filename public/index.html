@@ -2,62 +2,52 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stations-service autour de moi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stations-service</title>
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    #status { background: #eee; padding: 1em; margin-bottom: 1em; border: 1px solid #ccc; }
+    .station { margin-bottom: 1em; padding: 0.5em; border: 1px solid #ccc; }
+  </style>
 </head>
 <body>
-  <h1>⛽ Stations-service autour de moi</h1>
-  <p id="loading">Chargement des données…</p>
-  <ul id="station-list"></ul>
+  <h1>Stations-service autour de vous</h1>
+  <div id="status">Chargement des données…</div>
+  <div id="stations"></div>
 
   <script>
-    const API_URL = '/api/carburants';
-
-    function getDistanceKm(lat1, lon1, lat2, lon2) {
-      const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) ** 2;
-      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-    }
-
-    async function init() {
+    async function loadStations() {
+      const status = document.getElementById("status");
       try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-        const stations = await response.json();
+        const response = await fetch("/api/carburants");
+        if (!response.ok) {
+          throw new Error("Erreur HTTP " + response.status);
+        }
 
-        if (!navigator.geolocation) throw new Error("Géolocalisation non disponible");
-        navigator.geolocation.getCurrentPosition((position) => {
-          const { latitude: lat, longitude: lon } = position.coords;
-          const list = stations.map(s => ({
-            ...s,
-            distance: getDistanceKm(lat, lon, s.lat, s.lon)
-          })).sort((a, b) => a.distance - b.distance);
+        const data = await response.json();
 
-          document.getElementById('loading').remove();
-          const el = document.getElementById('station-list');
-          list.slice(0, 20).forEach(s => {
-            const item = document.createElement('li');
-            item.innerHTML = `<strong>${s.ville}</strong> – ${s.adresse}<br>
-              ${s.carburants.map(c => `${c.nom} : ${c.valeur} €`).join(' | ')}<br>
-              📍 ${s.distance.toFixed(2)} km`;
-            el.appendChild(item);
-          });
-        }, (err) => {
-          throw new Error("Autorisation géolocalisation refusée");
+        if (!Array.isArray(data)) {
+          throw new Error("Format de réponse inattendu");
+        }
+
+        status.innerText = "✔ Données chargées : " + data.length + " stations trouvées";
+
+        const container = document.getElementById("stations");
+        data.forEach(station => {
+          const div = document.createElement("div");
+          div.className = "station";
+          div.innerHTML = `<strong>${station.ville}</strong><br>${station.adresse}<br>` +
+            station.carburants.map(c => `${c.nom}: ${c.valeur} € (${c.maj})`).join("<br>");
+          container.appendChild(div);
         });
+
       } catch (err) {
-        console.error("Erreur API ou géoloc :", err);
-        document.getElementById('station-list').innerHTML = "";
-        const msg = document.getElementById('loading');
-        msg.textContent = `Erreur : ${err.message}`;
+        status.innerText = "❌ Erreur de chargement : " + err.message;
+        console.error("Erreur récupération carburants :", err);
       }
     }
 
-    init();
+    loadStations();
   </script>
 </body>
 </html>
