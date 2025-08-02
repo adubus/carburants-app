@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { parseStringPromise } from "xml2js";
+import iconv from "iconv-lite"; // ← nouveau
 
 export default async function handler(req, res) {
   try {
@@ -7,10 +8,12 @@ export default async function handler(req, res) {
     const zipResponse = await fetch(zipUrl);
     const zipBuffer = await zipResponse.arrayBuffer();
 
-    const zip = await JSZip.loadAsync(zipBuffer);
+    const zip = await JSZip.loadAsync(Buffer.from(zipBuffer));
     const files = Object.keys(zip.files);
     const xmlFileName = files.find((name) => name.endsWith(".xml"));
-    const xmlText = await zip.files[xmlFileName].async("text");
+    
+    const xmlBuffer = await zip.files[xmlFileName].async("nodebuffer"); // ← lire comme buffer
+    const xmlText = iconv.decode(xmlBuffer, "ISO-8859-15"); // ← décoder proprement
 
     const stations = await parseXmlToStations(xmlText);
 
