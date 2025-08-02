@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { parseStringPromise } from "xml2js";
-import iconv from "iconv-lite"; // pour décoder ISO-8859-15
+import iconv from "iconv-lite";
 
 export default async function handler(req, res) {
   try {
@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     const zip = await JSZip.loadAsync(Buffer.from(zipBuffer));
     const xmlFileName = Object.keys(zip.files).find(name => name.endsWith(".xml"));
     const xmlBuffer = await zip.files[xmlFileName].async("nodebuffer");
-    const xmlText = iconv.decode(xmlBuffer, "ISO-8859-15"); // décode avec accents
+    const xmlText = iconv.decode(xmlBuffer, "ISO-8859-15");
 
     const stations = await parseXmlToStations(xmlText);
 
@@ -25,9 +25,9 @@ export default async function handler(req, res) {
 
 async function parseXmlToStations(xml) {
   const parsed = await parseStringPromise(xml);
-  const rawStations = parsed?.pdv_liste?.pdv || [];
 
-  return rawStations.map(station => {
+  const rawStations = parsed?.pdv_liste?.pdv || [];
+  return rawStations.map((station) => {
     const lat = parseFloat(station.$.latitude) / 100000;
     const lon = parseFloat(station.$.longitude) / 100000;
     const id = station.$.id;
