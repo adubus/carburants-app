@@ -20,6 +20,19 @@
 </head>
 <body>
   <button onclick="window.location.href='index.html'">Retour à la page d'accueil</button>
+ <button onclick="ouvrirParametres()">⚙️ Paramètres</button>
+  <div id="parametresModal" style="display:none; position:fixed; top:10%; left:10%; width:80%; background:#fff; padding:20px; border:1px solid #ccc; z-index:1000;">
+  <h2>Choisir les catégories préférées</h2>
+  <label><input type="checkbox" value="restaurant"> Restaurant</label><br/>
+  <label><input type="checkbox" value="cafe"> Café</label><br/>
+  <label><input type="checkbox" value="bakery"> Boulangerie</label><br/>
+  <label><input type="checkbox" value="supermarket"> Supermarché</label><br/>
+  <label><input type="checkbox" value="fast_food"> Restauration rapide</label><br/>
+  <!-- Ajoute d'autres options selon besoin -->
+  <br/>
+  <button onclick="sauverPreferences()">✅ Sauvegarder</button>
+  <button onclick="fermerParametres()">❌ Fermer</button>
+</div>
   <h1>Autour de moi</h1>
 
   <label for="ville">Ville (laisser vide pour géolocalisation) :</label><br />
@@ -413,6 +426,25 @@ END:VCARD`;
         console.error(err);
       }
     }
+    function ouvrirParametres() {
+  const prefs = JSON.parse(localStorage.getItem("categoriesPreferees") || "[]");
+  document.querySelectorAll("#parametresModal input[type=checkbox]").forEach(cb => {
+    cb.checked = prefs.includes(cb.value);
+  });
+  document.getElementById("parametresModal").style.display = "block";
+}
+
+function fermerParametres() {
+  document.getElementById("parametresModal").style.display = "none";
+}
+
+function sauverPreferences() {
+  const categories = Array.from(document.querySelectorAll("#parametresModal input[type=checkbox]:checked"))
+    .map(cb => cb.value);
+  localStorage.setItem("categoriesPreferees", JSON.stringify(categories));
+  fermerParametres();
+  alert("Préférences sauvegardées !");
+}
   </script>
 </body>
 </html>
