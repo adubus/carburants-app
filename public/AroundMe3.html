@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>POI autour de moi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    #settings-modal {
+      display: none;
+      position: fixed;
+      top: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 1em;
+      border: 1px solid #ccc;
+      z-index: 1000;
+    }
+    #btn-settings {
+      position: fixed;
+      bottom: 1em;
+      right: 1em;
+      font-size: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Points d'intérêt autour de moi</h1>
+
+  <ul id="poi-list"></ul>
+
+  <button id="btn-settings">⚙️ Paramètres</button>
+
+  <div id="settings-modal">
+    <h3>Choisissez les catégories</h3>
+    <label><input type="checkbox" value="grocery" /> Épicerie</label><br>
+    <label><input type="checkbox" value="cafe" /> Café</label><br>
+    <label><input type="checkbox" value="atm" /> Distributeur</label><br>
+    <label><input type="checkbox" value="restaurant" /> Restaurant</label><br>
+    <label><input type="checkbox" value="toilets" /> Toilettes</label><br>
+    <label><input type="checkbox" value="pharmacy" /> Pharmacie</label><br>
+    <button id="save-settings">Enregistrer</button>
+    <button id="close-settings">Fermer</button>
+  </div>
+
+  <script>
+    const btnSettings = document.getElementById("btn-settings");
+    const modal = document.getElementById("settings-modal");
+    const saveBtn = document.getElementById("save-settings");
+    const closeBtn = document.getElementById("close-settings");
+
+    btnSettings.onclick = () => modal.style.display = "block";
+    closeBtn.onclick = () => modal.style.display = "none";
+
+    saveBtn.onclick = () => {
+      const selected = [...modal.querySelectorAll("input[type=checkbox]:checked")].map(cb => cb.value);
+      localStorage.setItem("poiCategories", JSON.stringify(selected));
+      modal.style.display = "none";
+      location.reload();
+    };
+
+    function getPreferredCategories() {
+      const stored = localStorage.getItem("poiCategories");
+      return stored ? JSON.parse(stored) : ["grocery", "cafe"];
+    }
+
+    async function fetchPOIs(lat, lon, categories) {
+      const radius = 1000;
+      const filters = categories.map(cat => `node["amenity"="${cat}"](around:${radius},${lat},${lon});`).join("\n");
+      const query = `
+        [out:json];
+        (
+          ${filters}
+        );
+        out center;
+      `;
+      const url = "https://overpass-api.de/api/interpreter";
+      const response = await fetch(url, {
+        method: "POST",
+        body: query,
+      });
+      const data = await response.json();
+      return data.elements;
+    }
+
+    function displayPOIs(pois) {
+      const list = document.getElementById("poi-list");
+      list.innerHTML = "";
+      pois.forEach(el => {
+        const name = el.tags?.name || el.tags?.amenity || "(Nom inconnu)";
+        const li = document.createElement("li");
+        li.textContent = `${name} (${el.tags?.amenity || "?"})`;
+        list.appendChild(li);
+      });
+    }
+
+    function getLocationAndLoadPOIs() {
+      if (!navigator.geolocation) {
+        alert("La géolocalisation n'est pas supportée.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const categories = getPreferredCategories();
+        const pois = await fetchPOIs(lat, lon, categories);
+        displayPOIs(pois);
+      }, (err) => {
+        alert("Erreur de géolocalisation : " + err.message);
+      });
+    }
+
+    // Chargement automatique au lancement
+    window.onload = getLocationAndLoadPOIs;
+  </script>
+</body>
+</html>
